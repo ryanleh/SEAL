@@ -315,4 +315,67 @@ namespace seal
             throw invalid_argument("unsupported scheme");
         }
     }
+
+    void Encryptor::preprocess_encrypt_symmetric(Ciphertext &destination, DynArray<uint64_t> &a) const
+    {
+        // Minimal verification that the keys are set
+        if (!is_metadata_valid_for(secret_key_, context_))
+        {
+            throw logic_error("secret key is not set");
+        }
+        auto scheme = context_.key_context_data()->parms().scheme();
+        if (scheme == scheme_type::bfv)
+        {
+            // Generate an encryption of zero 
+            auto parms_id = context_.first_parms_id();
+            auto context_data_ptr = context_.get_context_data(parms_id);
+            if (!context_data_ptr)
+            {
+                throw invalid_argument("parms_id is not valid for encryption parameters");
+            }
+
+            util::encrypt_zero_symmetric(secret_key_, context_, parms_id, a, destination);
+        }
+        else 
+        {
+            throw invalid_argument("unsupported scheme");
+        }
+    }
+
+
+    void Encryptor::encrypt_symmetric_preprocessed(const Plaintext &plain, Ciphertext &destination) const
+    {
+        // Verify that plain is valid
+        if (!is_valid_for(plain, context_))
+        {
+            throw invalid_argument("plain is not valid for encryption parameters");
+        }
+        if (plain.is_ntt_form())
+        {
+            throw invalid_argument("plain cannot be in NTT form");
+        }
+
+        auto parms_id = context_.first_parms_id();
+        auto context_data_ptr = context_.get_context_data(parms_id);
+
+        // Multiply plain by scalar coeff_div_plaintext and reposition if in upper-half.
+        // Result gets added into the c_0 term of ciphertext (c_0,c_1).
+        multiply_add_plain_with_scaling_variant(plain, *context_data_ptr, *iter(destination));
+    }
+
+    void Encryptor::get_a(DynArray<uint64_t> &a, prng_seed_type &seed) const
+    {
+        // Get context data
+        auto &context_data = *context_.first_context_data();
+        auto &parms = context_data.parms();
+        size_t coeff_modulus_size = parms.coeff_modulus().size();
+        size_t coeff_count = parms.poly_modulus_degree();
+        
+        // Resize `a` and sample in NTT form
+        a.resize(mul_safe(coeff_count, coeff_modulus_size));
+        sample_poly_uniform(
+            UniformRandomGeneratorFactory::DefaultFactory()->create(seed),
+            parms,
+            a.begin());
+    }
 } // namespace seal

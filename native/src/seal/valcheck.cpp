@@ -127,8 +127,11 @@ namespace seal
         // Note: we check the underlying Plaintext and allow pure key levels in
         // this check. Then, also need to check that the parms_id matches the
         // key level parms_id; this also means the Plaintext is in NTT form.
-        auto key_parms_id = context.key_parms_id();
-        return is_metadata_valid_for(in.data(), context, true) && (in.parms_id() == key_parms_id);
+        auto valid = is_metadata_valid_for(in.data(), context, true);
+        
+        // Params can either be from key or first context level
+        valid &= (in.parms_id() == context.key_parms_id() || in.parms_id() == context.first_parms_id());
+        return valid;
     }
 
     bool is_metadata_valid_for(const PublicKey &in, const SEALContext &context)
@@ -343,7 +346,8 @@ namespace seal
         }
 
         // Check the data
-        auto context_data_ptr = context.key_context_data();
+//        auto context_data_ptr = context.key_context_data();
+        auto context_data_ptr = context.first_context_data();
         auto &parms = context_data_ptr->parms();
         auto &coeff_modulus = parms.coeff_modulus();
         size_t coeff_modulus_size = coeff_modulus.size();

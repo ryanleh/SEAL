@@ -100,7 +100,7 @@ namespace seal
 
     void Ciphertext::resize_internal(size_t size, size_t poly_modulus_degree, size_t coeff_modulus_size)
     {
-        if ((size < SEAL_CIPHERTEXT_SIZE_MIN && size != 0) || size > SEAL_CIPHERTEXT_SIZE_MAX)
+        if (size > SEAL_CIPHERTEXT_SIZE_MAX)
         {
             throw invalid_argument("invalid size");
         }

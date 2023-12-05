@@ -37,6 +37,25 @@ namespace seal
             });
         }
 
+        void sample_poly_binary(
+            shared_ptr<UniformRandomGenerator> prng, const EncryptionParameters &parms, uint64_t *destination)
+        {
+            auto coeff_modulus = parms.coeff_modulus();
+            size_t coeff_modulus_size = coeff_modulus.size();
+            size_t coeff_count = parms.poly_modulus_degree();
+
+            RandomToStandardAdapter engine(prng);
+            uniform_int_distribution<uint64_t> dist(0, 1);
+
+            SEAL_ITERATE(iter(destination), coeff_count, [&](auto &I) {
+                uint64_t rand = dist(engine);
+                SEAL_ITERATE(
+                    iter(StrideIter<uint64_t *>(&I, coeff_count), coeff_modulus), coeff_modulus_size,
+                    [&](auto J) { *get<0>(J) = rand; });
+            });
+        }
+
+
         void sample_poly_normal(
             shared_ptr<UniformRandomGenerator> prng, const EncryptionParameters &parms, uint64_t *destination)
         {
@@ -402,6 +421,57 @@ namespace seal
                 // Write prng_info to destination.data(1) after an indicator word
                 c1[0] = static_cast<uint64_t>(0xFFFFFFFFFFFFFFFFULL);
                 prng_info.save(reinterpret_cast<seal_byte *>(c1 + 1), prng_info_byte_count, compr_mode_type::none);
+            }
+        }
+        
+        void encrypt_zero_symmetric(
+            const SecretKey &secret_key, const SEALContext &context, parms_id_type parms_id, DynArray<uint64_t> a,
+            Ciphertext &destination)
+        {
+            // We use a fresh memory pool with `clear_on_destruction' enabled.
+            MemoryPoolHandle pool = MemoryManager::GetPool(mm_prof_opt::mm_force_new, true);
+
+            auto &context_data = *context.get_context_data(parms_id);
+            auto &parms = context_data.parms();
+            auto &coeff_modulus = parms.coeff_modulus();
+            auto &plain_modulus = parms.plain_modulus();
+            size_t coeff_modulus_size = coeff_modulus.size();
+            size_t coeff_count = parms.poly_modulus_degree();
+            auto ntt_tables = context_data.small_ntt_tables();
+            size_t encrypted_size = 1; // Since we omit A, the output size is 1
+
+            destination.resize(context, parms_id, encrypted_size);
+            destination.is_ntt_form() = false;
+            destination.scale() = 1.0;
+            destination.correction_factor() = 1;
+
+            // Create an instance of a random number generator for sampling the
+            // noise/error.
+            auto bootstrap_prng = parms.random_generator()->create();
+
+            // Generate ciphertext: (c[0], c[1]) = ([-(as+ e)]_q) in BFV
+            uint64_t *c0 = destination.data();
+            uint64_t *c1 = a.begin();
+
+            // Sample e <-- chi
+            auto noise(allocate_poly(coeff_count, coeff_modulus_size, pool));
+            SEAL_NOISE_SAMPLER(bootstrap_prng, parms, noise.get());
+
+            // Calculate as+ e (mod q) and store in c[0] in BFV
+            for (size_t i = 0; i < coeff_modulus_size; i++)
+            {
+                // Polynomial multiplication
+                dyadic_product_coeffmod(
+                    secret_key.data().data() + i * coeff_count, c1 + i * coeff_count, coeff_count, coeff_modulus[i],
+                    c0 + i * coeff_count);
+
+                // Bring ciphertext out of NTT representation
+                inverse_ntt_negacyclic_harvey(c0 + i * coeff_count, ntt_tables[i]);
+
+                // c0 = as + noise
+                add_poly_coeffmod(
+                    noise.get() + i * coeff_count, c0 + i * coeff_count, coeff_count, coeff_modulus[i],
+                    c0 + i * coeff_count);
             }
         }
     } // namespace util

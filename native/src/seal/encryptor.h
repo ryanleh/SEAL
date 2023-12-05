@@ -102,7 +102,7 @@ namespace seal
         @param[in] secret_key The secret key
         @throws std::invalid_argument if secret_key is not valid
         */
-        inline void set_secret_key(const SecretKey &secret_key)
+        inline void set_secret_key(const SecretKey &secret_key, bool specialized = false)
         {
             if (!is_valid_for(secret_key, context_))
             {
@@ -273,6 +273,22 @@ namespace seal
         {
             encrypt_internal(plain, false, false, destination, pool);
         }
+
+
+        /**
+        TODO: Assumes `a` is already CRT-encoded and in NTT representation
+        */
+        void preprocess_encrypt_symmetric(Ciphertext &destination, DynArray<uint64_t> &a) const;
+
+        /**
+        TODO: Assumes ciphertext has already been preprocessed
+        */
+        void encrypt_symmetric_preprocessed(const Plaintext &plain, Ciphertext &destination) const;
+
+        /**
+        Get an `a` polynomial in CRT-encoding and in NTT representation.
+        */
+        void get_a(DynArray<uint64_t> &a, prng_seed_type &seed) const;
 
         /**
         Encrypts a plaintext with the secret key and returns the ciphertext as

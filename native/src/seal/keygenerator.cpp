@@ -30,7 +30,7 @@ namespace seal
         sk_generated_ = false;
 
         // Generate the secret and public key
-        generate_sk();
+        generate_sk(*context_.key_context_data());
     }
 
     KeyGenerator::KeyGenerator(const SEALContext &context, const SecretKey &secret_key) : context_(context)
@@ -50,13 +50,36 @@ namespace seal
         sk_generated_ = true;
 
         // Generate the public key
-        generate_sk(sk_generated_);
+        generate_sk(*context_.key_context_data(), sk_generated_);
     }
 
-    void KeyGenerator::generate_sk(bool is_initialized)
+    KeyGenerator::KeyGenerator(const SEALContext &context, bool only_encryption) : context_(context)
     {
+        // Verify parameters
+        if (!context_.parameters_set())
+        {
+            throw invalid_argument("encryption parameters are not set correctly");
+        }
+
+        // Secret key has not been generated
+        sk_generated_ = false;
+
+        // Generate the secret and public key
+        //
+        // If `only_encryption` is set, we generate the secret key without the
+        // special modulus
+        if (only_encryption) {
+            generate_sk(*context_.first_context_data());
+        } else {
+            generate_sk(*context_.key_context_data());
+        }
+    }
+    
+    void KeyGenerator::generate_sk(
+        const SEALContext::ContextData &context_data,
+        bool is_initialized
+    ) {
         // Extract encryption parameters.
-        auto &context_data = *context_.key_context_data();
         auto &parms = context_data.parms();
         auto &coeff_modulus = parms.coeff_modulus();
         size_t coeff_count = parms.poly_modulus_degree();
@@ -65,15 +88,17 @@ namespace seal
         if (!is_initialized)
         {
             // Initialize secret key.
-            secret_key_ = SecretKey();
+            secret_key_coeff_ = SecretKey();
             sk_generated_ = false;
-            secret_key_.data().resize(mul_safe(coeff_count, coeff_modulus_size));
+            secret_key_coeff_.data().resize(mul_safe(coeff_count, coeff_modulus_size));
 
             // Generate secret key
-            RNSIter secret_key(secret_key_.data().data(), coeff_count);
-            sample_poly_ternary(parms.random_generator()->create(), parms, secret_key);
+            RNSIter secret_key_coeff(secret_key_coeff_.data().data(), coeff_count);
+            sample_poly_binary(parms.random_generator()->create(), parms, secret_key_coeff);
 
-            // Transform the secret s into NTT representation.
+            // Copy the coefficient representation and transform into NTT representation.
+            secret_key_ = SecretKey(secret_key_coeff_);
+            RNSIter secret_key(secret_key_.data().data(), coeff_count);
             auto ntt_tables = context_data.small_ntt_tables();
             ntt_negacyclic_harvey(secret_key, coeff_modulus_size, ntt_tables);
 
@@ -227,6 +252,14 @@ namespace seal
             throw logic_error("secret key has not been generated");
         }
         return secret_key_;
+    }
+        
+    const SecretKey &KeyGenerator::secret_key_coeff() const {
+        if (!sk_generated_)
+        {
+            throw logic_error("secret key has not been generated");
+        }
+        return secret_key_coeff_;
     }
 
     void KeyGenerator::compute_secret_key_array(const SEALContext::ContextData &context_data, size_t max_power)

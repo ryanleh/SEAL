@@ -27,6 +27,17 @@ namespace seal
             std::uint64_t *destination);
 
         /**
+        Generate a uniform binary polynomial and store in RNS representation.
+
+        @param[in] prng A uniform random generator
+        @param[in] parms EncryptionParameters used to parameterize an RNS polynomial
+        @param[out] destination Allocated space to store a random polynomial
+        */
+        void sample_poly_binary(
+            std::shared_ptr<UniformRandomGenerator> prng, const EncryptionParameters &parms,
+            std::uint64_t *destination);
+
+        /**
         Generate a polynomial from a normal distribution and store in RNS representation.
 
         @param[in] prng A uniform random generator
@@ -110,5 +121,13 @@ namespace seal
         void encrypt_zero_symmetric(
             const SecretKey &secret_key, const SEALContext &context, parms_id_type parms_id, bool is_ntt_form,
             bool save_seed, Ciphertext &destination);
+        
+
+        /**
+        TODO
+        */
+        void encrypt_zero_symmetric(
+            const SecretKey &secret_key, const SEALContext &context, parms_id_type parms_id, DynArray<uint64_t> a,
+            Ciphertext &destination);
     } // namespace util
 } // namespace seal

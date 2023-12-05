@@ -500,6 +500,8 @@ void ckks_performance_test(SEALContext context)
         /*
         [Multiply Plain]
         */
+        cout << "HERE: " << encrypted2.is_ntt_form() << endl;
+        cout << "HERE2: " << plain.is_ntt_form() << endl;
         time_start = chrono::high_resolution_clock::now();
         evaluator.multiply_plain_inplace(encrypted2, plain);
         time_end = chrono::high_resolution_clock::now();

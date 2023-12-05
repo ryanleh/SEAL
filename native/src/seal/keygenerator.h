@@ -54,9 +54,24 @@ namespace seal
         KeyGenerator(const SEALContext &context, const SecretKey &secret_key);
 
         /**
+        Creates a KeyGenerator intialized the specified SEALContext. Additionally,
+        secret keys can be specialized for just supporting encryption/decryption,
+        i.e., the 'special modulus' is dropped.
+
+        @param[in] context The SEALContext
+        @param[in] only_encryption Whether to specialize secret key
+        @throws std::invalid_argument if encryption parameters are not valid
+        @throws std::invalid_argument if secret_key is not valid for encryption
+        parameters
+        */
+        KeyGenerator(const SEALContext &context, bool only_encryption);
+
+        /**
         Returns a const reference to the secret key.
         */
         SEAL_NODISCARD const SecretKey &secret_key() const;
+
+        SEAL_NODISCARD const SecretKey &secret_key_coeff() const;
 
         /**
         Generates a public key and stores the result in destination. Every time
@@ -313,7 +328,7 @@ namespace seal
         initialized so that only the secret_key_array_ should be initialized, for
         example, if the secret key was provided in the constructor
         */
-        void generate_sk(bool is_initialized = false);
+        void generate_sk(const SEALContext::ContextData &context_data, bool is_initialized = false);
 
         /**
         Generates new public key matching to existing secret key.
@@ -368,6 +383,8 @@ namespace seal
         SEALContext context_;
 
         SecretKey secret_key_;
+        
+        SecretKey secret_key_coeff_;
 
         std::size_t secret_key_array_size_ = 0;
 

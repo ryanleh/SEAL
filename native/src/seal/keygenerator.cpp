@@ -94,7 +94,7 @@ namespace seal
 
             // Generate secret key
             RNSIter secret_key_coeff(secret_key_coeff_.data().data(), coeff_count);
-            sample_poly_binary(parms.random_generator()->create(), parms, secret_key_coeff);
+            sample_poly_ternary(parms.random_generator()->create(), parms, secret_key_coeff);
 
             // Copy the coefficient representation and transform into NTT representation.
             secret_key_ = SecretKey(secret_key_coeff_);

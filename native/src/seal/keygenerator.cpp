@@ -30,7 +30,7 @@ namespace seal
         sk_generated_ = false;
 
         // Generate the secret and public key
-        generate_sk(*context_.key_context_data());
+        generate_sk(*context_.key_context_data(), false);
     }
 
     KeyGenerator::KeyGenerator(const SEALContext &context, const SecretKey &secret_key) : context_(context)
@@ -53,7 +53,7 @@ namespace seal
         generate_sk(*context_.key_context_data(), sk_generated_);
     }
 
-    KeyGenerator::KeyGenerator(const SEALContext &context, bool only_encryption) : context_(context)
+    KeyGenerator::KeyGenerator(const SEALContext &context, bool only_encryption, bool gaussian) : context_(context)
     {
         // Verify parameters
         if (!context_.parameters_set())
@@ -69,15 +69,16 @@ namespace seal
         // If `only_encryption` is set, we generate the secret key without the
         // special modulus
         if (only_encryption) {
-            generate_sk(*context_.first_context_data());
+            generate_sk(*context_.first_context_data(), false, gaussian);
         } else {
-            generate_sk(*context_.key_context_data());
+            generate_sk(*context_.key_context_data(), false, gaussian);
         }
     }
     
     void KeyGenerator::generate_sk(
         const SEALContext::ContextData &context_data,
-        bool is_initialized
+        bool is_initialized,
+        bool gaussian
     ) {
         // Extract encryption parameters.
         auto &parms = context_data.parms();
@@ -94,7 +95,11 @@ namespace seal
 
             // Generate secret key
             RNSIter secret_key_coeff(secret_key_coeff_.data().data(), coeff_count);
-            sample_poly_ternary(parms.random_generator()->create(), parms, secret_key_coeff);
+            if (gaussian) {
+                SEAL_NOISE_SAMPLER(parms.random_generator()->create(), parms, secret_key_coeff);
+            } else {
+                sample_poly_ternary(parms.random_generator()->create(), parms, secret_key_coeff);
+            }
 
             // Copy the coefficient representation and transform into NTT representation.
             secret_key_ = SecretKey(secret_key_coeff_);

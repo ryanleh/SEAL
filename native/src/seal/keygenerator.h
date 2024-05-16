@@ -64,7 +64,7 @@ namespace seal
         @throws std::invalid_argument if secret_key is not valid for encryption
         parameters
         */
-        KeyGenerator(const SEALContext &context, bool only_encryption);
+        KeyGenerator(const SEALContext &context, bool only_encryption, bool gaussian = false);
 
         /**
         Returns a const reference to the secret key.
@@ -328,7 +328,7 @@ namespace seal
         initialized so that only the secret_key_array_ should be initialized, for
         example, if the secret key was provided in the constructor
         */
-        void generate_sk(const SEALContext::ContextData &context_data, bool is_initialized = false);
+        void generate_sk(const SEALContext::ContextData &context_data, bool is_initialized, bool gaussian = false);
 
         /**
         Generates new public key matching to existing secret key.

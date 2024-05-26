@@ -307,6 +307,16 @@ namespace seal
             return data_;
         }
 
+        SEAL_NODISCARD inline auto &dyn_array() noexcept
+        {
+            return data_;
+        }
+
+        inline void set_array(DynArray<ct_coeff_type> arr) noexcept
+        {
+            data_ = std::move(arr);
+        }
+
         /**
         Returns a pointer to the beginning of the ciphertext data.
         */

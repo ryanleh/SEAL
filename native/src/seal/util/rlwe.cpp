@@ -122,11 +122,18 @@ namespace seal
         void sample_poly_uniform(
             shared_ptr<UniformRandomGenerator> prng, const EncryptionParameters &parms, uint64_t *destination)
         {
+            size_t coeff_count = parms.poly_modulus_degree();
+            sample_poly_uniform(prng, parms, coeff_count, destination);
+        }
+        
+        void sample_poly_uniform(
+            shared_ptr<UniformRandomGenerator> prng, const EncryptionParameters &parms, size_t size, uint64_t *destination)
+        {
             // Extract encryption parameters
             auto coeff_modulus = parms.coeff_modulus();
             size_t coeff_modulus_size = coeff_modulus.size();
             size_t coeff_count = parms.poly_modulus_degree();
-            size_t dest_byte_count = mul_safe(coeff_modulus_size, coeff_count, sizeof(uint64_t));
+            size_t dest_byte_count = mul_safe(coeff_modulus_size, size, sizeof(uint64_t));
 
             constexpr uint64_t max_random = static_cast<uint64_t>(0xFFFFFFFFFFFFFFFFULL);
 
@@ -137,7 +144,7 @@ namespace seal
             {
                 auto &modulus = coeff_modulus[j];
                 uint64_t max_multiple = max_random - barrett_reduce_64(max_random, modulus) - 1;
-                transform(destination, destination + coeff_count, destination, [&](uint64_t rand) {
+                transform(destination, destination + size, destination, [&](uint64_t rand) {
                     // This ensures uniform distribution
                     while (rand >= max_multiple)
                     {
@@ -145,7 +152,7 @@ namespace seal
                     }
                     return barrett_reduce_64(rand, modulus);
                 });
-                destination += coeff_count;
+                destination += size;
             }
         }
 
